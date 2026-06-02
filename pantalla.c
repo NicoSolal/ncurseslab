@@ -11,7 +11,7 @@
 #include <ncurses.h>
 #include <time.h>
 #include <string.h>
-
+#include <unistd.h>
 
 //Esta función mostrará el banner en un thread
 void *banner(void *param);
@@ -33,10 +33,10 @@ int main(int argc, char *argv[]) {
     refresh();
 
     //Crea una ventana donde ingresar el texto
-    win=newwin(15,70,1,1);      
+    win=newwin(15,70,1,1);
     box(win,0,0);
     mvwprintw(win, 1, 2, "Ingrese texto:"); 
-    wrefresh(win); 
+    wrefresh(win);
 
     //Dispara los threads
     pthread_create(&t_banner,NULL,(void *)banner,NULL); //dispara banner
