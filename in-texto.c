@@ -125,6 +125,8 @@ int main(int argc, char *argv[]) {
     clear();
     refresh();
 
+    setenv("TERM", "xterm", 1);
+
     WINDOW *recv_win = newwin(12, 80, 2, 0);
     WINDOW *send_win = newwin(12, 80, 15, 0);
 

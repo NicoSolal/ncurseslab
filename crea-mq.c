@@ -143,8 +143,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    setenv("TERM", "xterm", 1);
-
     char *queue_name = argv[1];
     int mqsize = atoi(argv[2]);
     int msgsize = atoi(argv[3]);
