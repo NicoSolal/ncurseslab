@@ -148,40 +148,8 @@ int main(int argc, char *argv[]) {
     int mqsize = atoi(argv[2]);
     int msgsize = atoi(argv[3]);
 
-    fprintf(stderr, "DEBUG: Input parameters\n");
-    fprintf(stderr, "  Queue name: '%s'\n", argv[1]);
-    fprintf(stderr, "  mqsize (arg): %d\n", mqsize);
-    fprintf(stderr, "  msgsize (arg): %d\n", msgsize);
-
     if (msgsize < MAX_MESSAGE_LEN) {
-        fprintf(stderr, "DEBUG: Adjusting msgsize from %d to %d\n", msgsize, MAX_MESSAGE_LEN);
         msgsize = MAX_MESSAGE_LEN;
-    }
-
-    fprintf(stderr, "DEBUG: System limits\n");
-    FILE *fp = fopen("/proc/sys/fs/mqueue/msgsize_max", "r");
-    if (fp) {
-        int max_msgsize;
-        fscanf(fp, "%d", &max_msgsize);
-        fclose(fp);
-        fprintf(stderr, "  msgsize_max: %d\n", max_msgsize);
-        if (msgsize > max_msgsize) {
-            fprintf(stderr, "  ERROR: msgsize (%d) exceeds system limit (%d)\n", msgsize, max_msgsize);
-            exit(1);
-        }
-    }
-
-    fp = fopen("/proc/sys/fs/mqueue/msg_max", "r");
-    if (fp) {
-        int max_msgs;
-        fscanf(fp, "%d", &max_msgs);
-        fclose(fp);
-        fprintf(stderr, "  msg_max: %d\n", max_msgs);
-        if (mqsize > max_msgs) {
-            fprintf(stderr, "  ERROR: mqsize (%d) exceeds system limit (%d)\n", mqsize, max_msgs);
-            fprintf(stderr, "  Using system limit instead\n");
-            mqsize = max_msgs;
-        }
     }
 
     memset(&attr, 0, sizeof(struct mq_attr));
@@ -190,30 +158,14 @@ int main(int argc, char *argv[]) {
     attr.mq_msgsize = msgsize;
     attr.mq_curmsgs = 0;
 
-    fprintf(stderr, "DEBUG: Final queue attributes\n");
-    fprintf(stderr, "  mq_maxmsg: %ld\n", attr.mq_maxmsg);
-    fprintf(stderr, "  mq_msgsize: %ld\n", attr.mq_msgsize);
-    fprintf(stderr, "  mq_flags: %ld\n", attr.mq_flags);
-
-    fprintf(stderr, "DEBUG: Unlinking old queue\n");
     mq_unlink(argv[1]);
     usleep(100000);
-
-    fprintf(stderr, "DEBUG: Creating queue\n");
-    printf("DEBUG: Queue name: %s\n", argv[1]);
-    printf("DEBUG: mq_maxmsg: %d\n", attr.mq_maxmsg);
-    printf("DEBUG: mq_msgsize: %d\n", attr.mq_msgsize);
-    printf("DEBUG: mq_flags: %ld\n", attr.mq_flags);
 
     queue = mq_open(argv[1], O_CREAT | O_RDWR, QUEUE_PERMISSIONS, &attr);
     if (queue == -1) {
         perror("Error creating message queue");
-        fprintf(stderr, "Error: %s\n", strerror(errno));
-        printf("DEBUG: errno = %d\n", errno);
         exit(1);
     }
-
-    fprintf(stderr, "DEBUG: Queue created successfully (fd: %d)\n", (int)queue);
 
     initscr();
     cbreak();
