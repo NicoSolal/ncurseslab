@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
     pthread_create(&t_banner, NULL, banner_thread, NULL);
     pthread_create(&t_clock, NULL, clock_thread, NULL);
 
-    char input[MAX_MESSAGE_LEN] = "";
+    /* char input[MAX_MESSAGE_LEN] = "";
     
     while (strcmp(input, "FIN") != 0) {
         wmove(send_win, 4, 2);
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
             stack_push(recv_stack, input);
             display_stack(recv_win, recv_stack);
         }
-    }
+    } */
 
     pthread_cancel(t_banner);
     pthread_cancel(t_clock);
