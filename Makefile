@@ -1,0 +1,18 @@
+CC=gcc
+BIN=./bin
+CFLAGS=-g -Wall -Wextra -Wshadow -Wconversion -Wunreachable-code -lncurses -lpthread -lrt
+
+$(BIN)/%: %.c
+	$(CC) -o $@ $< $(CFLAGS)
+
+%: %.c
+	$(CC) -o $(BIN)/$@ $< $(CFLAGS)
+
+test:
+	@./test.sh ||:
+
+zip:
+	git archive --format zip --output ${USER}-lab03.zip HEAD
+
+html:
+	pandoc -o README.html -f gfm README.md
