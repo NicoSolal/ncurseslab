@@ -5,6 +5,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGE_LEN 256
@@ -16,6 +20,7 @@ typedef struct {
 } MessageStack;
 
 typedef struct {
+    mqd_t queue;
     WINDOW *recv_win;
     WINDOW *send_win;
     MessageStack *recv_stack;
@@ -68,6 +73,21 @@ void display_stack(WINDOW *win, MessageStack *stack) {
     pthread_mutex_unlock(&stack->lock);
 }
 
+void* receiver_thread(void *param) {
+    ThreadData *data = (ThreadData *)param;
+    char buff[MAX_MESSAGE_LEN];
+    unsigned int prio = 0;
+
+    while (1) {
+        memset(buff, 0, sizeof(buff));
+        if (mq_receive(data->queue, buff, MAX_MESSAGE_LEN, &prio) != -1) {
+            stack_push(data->recv_stack, buff);
+            display_stack(data->recv_win, data->recv_stack);
+        }
+    }
+    pthread_exit(0);
+}
+
 void* banner_thread(void *param) {
     (void)param;
     int i = 0;
@@ -116,8 +136,31 @@ void* clock_thread(void *param) {
 }
 
 int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    if (argc < 4) {
+        fprintf(stderr, "uso: %s <nombre-cola> <cant-msgs> <tamaño-msgs>\n", argv[0]);
+        exit(1);
+    }
+
+    char *queue_name = argv[1];
+    int mqsize = atoi(argv[2]);
+    int msgsize = atoi(argv[3]);
+
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "./bin/crea-mq %s %d %d", queue_name, mqsize, msgsize);
+    
+    int ret = system(cmd);
+    if (ret != 0) {
+        fprintf(stderr, "Error creating message queue\n");
+        exit(1);
+    }
+
+    usleep(100000);
+
+    mqd_t queue = mq_open(queue_name, O_RDONLY);
+    if (queue == -1) {
+        perror("Error opening queue");
+        exit(1);
+    }
 
     setenv("TERM", "xterm", 1);
 
@@ -142,9 +185,18 @@ int main(int argc, char *argv[]) {
     MessageStack *recv_stack = stack_create();
     MessageStack *send_stack = stack_create();
 
-    pthread_t t_banner, t_clock;
+    ThreadData thread_data = {
+        .queue = queue,
+        .recv_win = recv_win,
+        .send_win = send_win,
+        .recv_stack = recv_stack,
+        .send_stack = send_stack
+    };
+
+    pthread_t t_banner, t_clock, t_receiver;
     pthread_create(&t_banner, NULL, banner_thread, NULL);
     pthread_create(&t_clock, NULL, clock_thread, NULL);
+    pthread_create(&t_receiver, NULL, receiver_thread, (void *)&thread_data);
 
     char input[MAX_MESSAGE_LEN] = "";
     
@@ -161,19 +213,23 @@ int main(int argc, char *argv[]) {
             stack_push(send_stack, input);
             display_stack(send_win, send_stack);
             
-            stack_push(recv_stack, input);
-            display_stack(recv_win, recv_stack);
+            if (mq_send(queue, input, strlen(input) + 1, 0) == -1) {
+                perror("Error sending message to queue");
+            }
         }
     }
 
     pthread_cancel(t_banner);
     pthread_cancel(t_clock);
+    pthread_cancel(t_receiver);
 
     werase(recv_win);
     werase(send_win);
     delwin(recv_win);
     delwin(send_win);
     endwin();
+
+    mq_close(queue);
 
     free(recv_stack);
     free(send_stack);
