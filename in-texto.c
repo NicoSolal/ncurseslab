@@ -119,13 +119,13 @@ int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
+    setenv("TERM", "xterm", 1);
+
     initscr();
     cbreak();
     noecho();
     clear();
     refresh();
-
-    setenv("TERM", "xterm", 1);
 
     WINDOW *recv_win = newwin(12, 80, 2, 0);
     WINDOW *send_win = newwin(12, 80, 15, 0);
