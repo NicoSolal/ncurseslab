@@ -4,14 +4,8 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <mqueue.h>
 #include <unistd.h>
-#include <errno.h>
 
-#define QUEUE_PERMISSIONS 0666
 #define MAX_MESSAGES 100
 #define MAX_MESSAGE_LEN 256
 
@@ -22,7 +16,6 @@ typedef struct {
 } MessageStack;
 
 typedef struct {
-    mqd_t queue;
     WINDOW *recv_win;
     WINDOW *send_win;
     MessageStack *recv_stack;
@@ -75,33 +68,18 @@ void display_stack(WINDOW *win, MessageStack *stack) {
     pthread_mutex_unlock(&stack->lock);
 }
 
-void* receiver_thread(void *param) {
-    ThreadData *data = (ThreadData *)param;
-    char buff[MAX_MESSAGE_LEN];
-    unsigned int prio = 0;
-
-    while (1) {
-        memset(buff, 0, sizeof(buff));
-        if (mq_receive(data->queue, buff, MAX_MESSAGE_LEN, &prio) != -1) {
-            stack_push(data->recv_stack, buff);
-            display_stack(data->recv_win, data->recv_stack);
-        }
-    }
-    pthread_exit(0);
-}
-
 void* banner_thread(void *param) {
     (void)param;
     int i = 0;
     char cartel[] = "Sistemas Operativos ";
     char s1[100];
-    size_t len = strlen(cartel);
+    int len = strlen(cartel);
 
     while (1) {
         memset(s1, 0, sizeof(s1));
         int idx = 0;
-        for (size_t j = i; j < len; j++) s1[idx++] = cartel[j];
-        for (size_t j = 0; j < i; j++) s1[idx++] = cartel[j];
+        for (int j = i; j < len; j++) s1[idx++] = cartel[j];
+        for (int j = 0; j < i; j++) s1[idx++] = cartel[j];
         
         mvaddstr(0, 0, "                                        ");
         mvaddstr(0, 0, s1);
@@ -109,7 +87,7 @@ void* banner_thread(void *param) {
         wnoutrefresh(stdscr);
         doupdate();
         
-        i = (i + 1) % (int)len;
+        i = (i + 1) % len;
         usleep(300000);
     }
     pthread_exit(0);
@@ -138,34 +116,8 @@ void* clock_thread(void *param) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 4) {
-        fprintf(stderr, "uso: %s <nombre-cola> <cant-msgs> <tamaño-msgs>\n", argv[0]);
-        exit(1);
-    }
-
-    mqd_t queue;
-    struct mq_attr attr;
-    int mqsize = atoi(argv[2]);
-    int msgsize = atoi(argv[3]);
-
-    if (msgsize < MAX_MESSAGE_LEN) {
-        msgsize = MAX_MESSAGE_LEN;
-    }
-
-    memset(&attr, 0, sizeof(struct mq_attr));
-    attr.mq_flags = 0;
-    attr.mq_maxmsg = mqsize;
-    attr.mq_msgsize = msgsize;
-    attr.mq_curmsgs = 0;
-
-    mq_unlink(argv[1]);
-    usleep(100000);
-
-    queue = mq_open(argv[1], O_CREAT | O_RDWR, QUEUE_PERMISSIONS, &attr);
-    if (queue == -1) {
-        perror("Error creating message queue");
-        exit(1);
-    }
+    (void)argc;
+    (void)argv;
 
     initscr();
     cbreak();
@@ -188,18 +140,9 @@ int main(int argc, char *argv[]) {
     MessageStack *recv_stack = stack_create();
     MessageStack *send_stack = stack_create();
 
-    ThreadData thread_data = {
-        .queue = queue,
-        .recv_win = recv_win,
-        .send_win = send_win,
-        .recv_stack = recv_stack,
-        .send_stack = send_stack
-    };
-
-    pthread_t t_banner, t_clock, t_receiver;
+    pthread_t t_banner, t_clock;
     pthread_create(&t_banner, NULL, banner_thread, NULL);
     pthread_create(&t_clock, NULL, clock_thread, NULL);
-    pthread_create(&t_receiver, NULL, receiver_thread, (void *)&thread_data);
 
     char input[MAX_MESSAGE_LEN] = "";
     
@@ -216,24 +159,19 @@ int main(int argc, char *argv[]) {
             stack_push(send_stack, input);
             display_stack(send_win, send_stack);
             
-            if (mq_send(queue, input, strlen(input) + 1, 0) == -1) {
-                perror("Error sending message to queue");
-            }
+            stack_push(recv_stack, input);
+            display_stack(recv_win, recv_stack);
         }
     }
 
     pthread_cancel(t_banner);
     pthread_cancel(t_clock);
-    pthread_cancel(t_receiver);
 
     werase(recv_win);
     werase(send_win);
     delwin(recv_win);
     delwin(send_win);
     endwin();
-
-    mq_close(queue);
-    mq_unlink(argv[1]);
 
     free(recv_stack);
     free(send_stack);
