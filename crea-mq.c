@@ -13,8 +13,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <mqueue.h>
+#include <unistd.h>
 
 #define QUEUE_PERMISSIONS 0666
 #define MSG_BUFFER_SIZE MAX_MSG_SIZE + 10
@@ -42,9 +42,14 @@ int main (int argc, char *argv[ ])
    attr.mq_curmsgs = 0;
 
    /* Crea la cola de mensajes */
-   if ((cola = mq_open (argv[1],  O_CREAT, QUEUE_PERMISSIONS, &attr)) == -1) 
+   if ((cola = mq_open (argv[1],  O_CREAT | O_RDWR, QUEUE_PERMISSIONS, &attr)) == -1) 
    {   perror("No se puede crear la cola de mensajes"); exit(1); }
 
+   // debug
+   struct mq_attr check_attr;
+   mq_getattr(cola, &check_attr);
+   printf("Actual queue size: %ld\n", check_attr.mq_msgsize);
+   
    printf("La cola fue creada con éxito\n");
    mq_close(cola);
 

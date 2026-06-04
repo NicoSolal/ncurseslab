@@ -8,9 +8,6 @@ $(BIN)/%: %.c
 %: %.c
 	$(CC) -o $(BIN)/$@ $< $(CFLAGS)
 
-test:
-	@./test.sh ||:
-
 zip:
 	git archive --format zip --output ${USER}-lab03.zip HEAD
 
